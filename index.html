@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pizarra del entrenador</title>
+<meta name="theme-color" content="#14532d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Entrenador">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&display=swap">
+<style>
+:root{--bg:#f1f5f0;--cd:#fff;--tx:#14201a;--mu:#5c6b62;--bd:#d3dcd4;--ac:#1c7d44;--on:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1612;--cd:#16221b;--tx:#e8f1ea;--mu:#9bb0a2;--bd:#2a3a30;--ac:#3fbf74;--on:#07130b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1612;--cd:#16221b;--tx:#e8f1ea;--mu:#9bb0a2;--bd:#2a3a30;--ac:#3fbf74;--on:#07130b;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:900px;margin:auto;padding:10px}
+h1,h2{font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;letter-spacing:.01em;margin:4px 0}
+h1{font-size:2rem;font-weight:800}h2{font-size:1.3rem;font-weight:800}
+nav{display:flex;gap:4px;background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:4px;margin:8px 0 12px}
+nav button{flex:1;border:0;background:none;color:var(--mu);font-weight:700;padding:10px 4px;border-radius:10px;font-size:1rem}
+nav button.on{background:var(--ac);color:var(--on)}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:16px;padding:12px;margin-bottom:10px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+input,select,textarea{padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit;max-width:100%}
+input:not([type=color]):not([type=checkbox]),textarea{flex:1;min-width:120px}textarea{width:100%;min-height:60px}
+input[type=color]{width:46px;height:42px;padding:2px}
+button{font:inherit;cursor:pointer}
+.b{background:var(--ac);color:var(--on);border:0;border-radius:10px;padding:10px 14px;font-weight:700}
+.g{background:none;color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:9px 12px}
+.tb button{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font-size:.92rem}
+.tb button.on{background:var(--ac);color:var(--on);border-color:var(--ac)}
+#cw{margin:8px 0}canvas{display:block;width:100%;border-radius:12px;touch-action:none}
+.hide{display:none}.mu{color:var(--mu);font-size:.88rem}
+.ex{border-left:5px solid var(--ac)}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--bd);border-radius:99px;padding:5px 10px;margin:3px;background:var(--bg)}
+.chip input{width:20px;height:20px;min-width:0;flex:none}
+.sl{display:grid;grid-template-columns:60px 1fr;gap:6px;align-items:center;margin:4px 0}
+:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:99px;display:none}
+</style>
+</head>
+<body>
+<h1>⚽ Pizarra del entrenador</h1>
+<nav><button data-a="tab" data-t="pz" class="on">Pizarra</button><button data-a="tab" data-t="se">Sesiones</button><button data-a="tab" data-t="pa">Partidos</button></nav>
+
+<section id="pz">
+<div class="card">
+<div class="row"><select id="ty"><option value="11">Fútbol 11</option><option value="7">Fútbol 7</option></select>
+<select id="hf"><option value="0">Campo completo</option><option value="1">Medio campo</option></select>
+<input id="lab" placeholder="Número o nombre" style="max-width:150px"><input type="color" id="col" value="#ffe14d" title="Color de las líneas"></div>
+<div class="row tb" id="tools"></div>
+<div id="cw"><canvas id="cv"></canvas></div>
+<div class="row"><select id="fo"></select><button class="g" data-a="fa">Poner mi equipo</button><button class="g" data-a="fb">Poner rival</button></div>
+<div class="row"><input id="tn" placeholder="Nombre de la táctica"><button class="b" data-a="ts">Guardar táctica</button></div>
+<p class="mu">Mover: arrastra a los jugadores. Pase: línea continua. Carrera: línea discontinua.</p>
+</div>
+<div class="card"><h2>Tácticas guardadas</h2><div id="tl"></div></div>
+</section>
+
+<section id="se" class="hide"></section>
+<section id="pa" class="hide"></section>
+<div id="toast"></div>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+var S={squad:[],tac:[],ses:[],mat:[]},SI=-1,MI=-1;
+function ld(){try{var r=localStorage.getItem("fut1");if(r){var o=JSON.parse(r);for(var k in o)S[k]=o[k]}}catch(e){}}
+function sv(){try{localStorage.setItem("fut1",JSON.stringify(S))}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.floor(Math.random()*999)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";setTimeout(function(){e.style.display="none"},1800)}
+function today(){return new Date().toISOString().slice(0,10)}
+
+var FM={"11":["4-4-2","4-3-3","3-5-2","4-2-3-1","5-3-2"],"7":["2-3-1","3-2-1","2-2-2","3-1-2"]};
+function fpos(f){var ls=f.split("-").map(Number),n=ls.length,o=[{x:.06,y:.5,l:"POR"}];
+ls.forEach(function(c,i){var x=.2+i*(.4/Math.max(n-1,1)),nm=i===0?"DEF":i===n-1?"DEL":"MED";
+for(var j=0;j<c;j++)o.push({x:x,y:(j+1)/(c+1),l:nm})});return o}
+function fopts(t,sel){return FM[t].map(function(f){return '<option'+(f===sel?" selected":"")+'>'+f+'</option>'}).join("")}
+
+/* ---------- PIZARRA ---------- */
+var B={type:"11",half:false,els:[],tool:"move",hist:[],cur:null,drag:null,W:0,H:0},cv,cx;
+var TOOLS=[["move","✋ Mover"],["a","🔴 Local"],["b","🔵 Rival"],["gk","🧤 Portero"],["cone","🔶 Cono"],["ball","⚽ Balón"],["arrow","➜ Pase"],["dash","⇢ Carrera"],["free","✏️ Lápiz"],["erase","🗑 Borrar"],["undo","↩ Deshacer"],["clear","Vaciar"]];
+function dims(){var f=B.type==="11",L=f?105:60;return {L:L,Wd:f?68:40,vis:B.half?L/2:L}}
+function fit(){var w=$("cw").clientWidth;if(!w)return;var d=dims(),r=window.devicePixelRatio||1,h=Math.round(w*d.Wd/d.vis);
+B.W=w;B.H=h;cv.width=w*r;cv.height=h*r;cv.style.height=h+"px";cx.setTransform(r,0,0,r,0,0);draw()}
+function draw(){
+var d=dims(),W=B.W,H=B.H,s=W/d.vis,c=cx,f=B.type==="11";
+for(var i=0;i<8;i++){c.fillStyle=i%2?"#2e8b4f":"#2a7f48";c.fillRect(i*W/8,0,W/8+1,H)}
+c.strokeStyle="rgba(255,255,255,.9)";c.lineWidth=2;c.strokeRect(1,1,W-2,H-2);
+var pa=f?[16.5,40.3]:[9,22],ga=f?[5.5,18.3]:[3,10],cr=f?9.15:6;
+function box(x,w,dd){c.strokeRect(x,(d.Wd-w)/2*s,dd,w*s)}
+box(0,pa[1],pa[0]*s);box(0,ga[1],ga[0]*s);
+if(!B.half){box(W-pa[0]*s,pa[1],pa[0]*s);box(W-ga[0]*s,ga[1],ga[0]*s);c.beginPath();c.moveTo(W/2,0);c.lineTo(W/2,H);c.stroke();c.beginPath();c.arc(W/2,H/2,cr*s,0,7);c.stroke()}
+else{c.beginPath();c.arc(W,H/2,cr*s,Math.PI/2,Math.PI*1.5);c.stroke()}
+B.els.forEach(function(e){if(e.k==="l")ln(e)});if(B.cur)ln(B.cur);
+B.els.forEach(function(e){if(e.k==="p")pl(e)})}
+function ln(e){var c=cx,P=e.pts.map(function(q){return [q[0]*B.W,q[1]*B.H]});
+c.strokeStyle=e.c;c.fillStyle=e.c;c.lineWidth=3;c.lineCap="round";c.lineJoin="round";c.setLineDash(e.st==="dash"?[9,7]:[]);
+c.beginPath();P.forEach(function(q,i){i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1])});c.stroke();c.setLineDash([]);
+if(e.st!=="free"&&P.length>1){var a=P[P.length-2],b=P[P.length-1],g=Math.atan2(b[1]-a[1],b[0]-a[0]);
+c.beginPath();c.moveTo(b[0],b[1]);c.lineTo(b[0]-12*Math.cos(g-.45),b[1]-12*Math.sin(g-.45));c.lineTo(b[0]-12*Math.cos(g+.45),b[1]-12*Math.sin(g+.45));c.closePath();c.fill()}}
+function pl(e){var c=cx,x=e.x*B.W,y=e.y*B.H,r=Math.max(11,Math.min(16,B.W/34));
+if(e.t==="cone"){c.fillStyle="#ff8f00";c.beginPath();c.moveTo(x,y-r*.8);c.lineTo(x+r*.8,y+r*.7);c.lineTo(x-r*.8,y+r*.7);c.fill();return}
+if(e.t==="ball"){c.fillStyle="#fff";c.strokeStyle="#111";c.lineWidth=2;c.beginPath();c.arc(x,y,r*.55,0,7);c.fill();c.stroke();return}
+c.fillStyle=e.t==="a"?"#e53935":"#1e66d0";c.beginPath();c.arc(x,y,r,0,7);c.fill();
+c.strokeStyle=e.g?"#ffe14d":"#fff";c.lineWidth=e.g?4:2;c.stroke();
+c.fillStyle="#fff";c.font="700 "+Math.round(r*.95)+"px system-ui,sans-serif";c.textAlign="center";c.textBaseline="middle";c.fillText(e.l||"",x,y+1)}
+function snap(){B.hist.push(JSON.stringify(B.els));if(B.hist.length>40)B.hist.shift()}
+function pt(ev){var r=cv.getBoundingClientRect();return [Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height))]}
+function near(p,mx){var best=-1,bd=mx*mx;
+B.els.forEach(function(e,i){var pts=e.k==="p"?[[e.x,e.y]]:e.pts.slice();
+if(e.k==="l"){var a=e.pts[0],z=e.pts[e.pts.length-1];pts.push([(a[0]+z[0])/2,(a[1]+z[1])/2])}
+pts.forEach(function(q){var dx=(q[0]-p[0])*B.W,dy=(q[1]-p[1])*B.H,dd=dx*dx+dy*dy;if(dd<bd){bd=dd;best=i}})});return best}
+function addP(t,p){var l=$("lab").value.trim(),n;
+if(!l&&(t==="a"||t==="b"||t==="gk")){var tm=t==="b"?"b":"a";n=B.els.filter(function(e){return e.k==="p"&&e.t===tm}).length+1;l=String(n)}
+B.els.push({k:"p",t:t==="gk"?"a":t,g:t==="gk"?1:0,x:p[0],y:p[1],l:l});$("lab").value=""}
+function bind(){
+cv.addEventListener("pointerdown",function(ev){ev.preventDefault();cv.setPointerCapture(ev.pointerId);var p=pt(ev),t=B.tool;
+if(t==="move"){var i=near(p,26);if(i>=0&&B.els[i].k==="p"){snap();B.drag=i}}
+else if(t==="erase"){var j=near(p,30);if(j>=0){snap();B.els.splice(j,1)}}
+else if(t==="arrow"||t==="dash"||t==="free"){B.cur={k:"l",st:t,c:$("col").value,pts:t==="free"?[p]:[p,p]}}
+else{snap();addP(t,p)}draw()});
+cv.addEventListener("pointermove",function(ev){var p=pt(ev);
+if(B.drag!==null){B.els[B.drag].x=p[0];B.els[B.drag].y=p[1]}
+else if(B.cur){if(B.cur.st==="free")B.cur.pts.push(p);else B.cur.pts[1]=p}else return;draw()});
+function up(){if(B.cur){var P=B.cur.pts,a=P[0],z=P[P.length-1];
+if(Math.hypot((a[0]-z[0])*B.W,(a[1]-z[1])*B.H)>12){snap();B.els.push(B.cur)}B.cur=null}B.drag=null;draw()}
+cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up)}
+function place(team){snap();B.els=B.els.filter(function(e){return !(e.k==="p"&&e.t===team&&e.l!==undefined&&e.t!=="cone"&&e.t!=="ball")});
+fpos($("fo").value).forEach(function(q,i){var x=B.half?q.x*1.5:q.x;if(team==="b")x=B.half?Math.max(.04,1-q.x*1.5):1-q.x;
+B.els.push({k:"p",t:team,g:i===0?1:0,x:x,y:q.y,l:String(i+1)})});draw()}
+function tl(){var h=S.tac.map(function(t,i){return '<div class="row"><b style="flex:1">'+esc(t.name)+'</b><span class="mu">F'+t.type+(t.half?" · medio":"")+'</span><button class="g" data-a="tload" data-j="'+i+'">Cargar</button><button class="g" data-a="tdel" data-j="'+i+'">✕</button></div>'}).join("");
+$("tl").innerHTML=h||'<p class="mu">Aún no has guardado ninguna. Coloca jugadores, pulsa «Guardar táctica» y aparecerá aquí.</p>'}
+function loadB(o){B.type=o.type;B.half=!!o.half;B.els=JSON.parse(JSON.stringify(o.els));B.hist=[];$("ty").value=B.type;$("hf").value=B.half?"1":"0";$("fo").innerHTML=fopts(B.type);fit()}
+
+/* ---------- SESIONES ---------- */
+var TPL={"Calentamiento":[10,"Movilidad y carrera suave con balón."],"Rondo":[12,"Rondo 4 contra 2 en espacio reducido."],"Posesión":[15,"Posesión 5 contra 5 más comodín."],"Finalización":[15,"Circuito de pase y remate a portería."],"Partido reducido":[20,"Juego libre 7 contra 7 con dos toques."],"Vuelta a la calma":[8,"Estiramientos y charla final."]};
+function rSes(){
+var h='<div class="card"><div class="row"><select id="ssel" style="flex:1">'+S.ses.map(function(s,i){return '<option value="'+i+'"'+(i===SI?" selected":"")+'>'+esc(s.name||"Sin nombre")+'</option>'}).join("")+'</select><button class="b" data-a="sn">+ Nueva sesión</button></div></div>';
+var s=S.ses[SI];
+if(!s){$("se").innerHTML=h+'<div class="card mu">Crea tu primera sesión de entrenamiento con el botón «Nueva sesión».</div>';return}
+h+='<div class="card"><div class="row"><input data-s="s" data-k="name" value="'+esc(s.name)+'" placeholder="Nombre de la sesión"><input type="date" data-s="s" data-k="date" value="'+esc(s.date)+'"></div>'+
+'<div class="row"><input data-s="s" data-k="cat" value="'+esc(s.cat)+'" placeholder="Categoría o equipo"></div><textarea data-s="s" data-k="obj" placeholder="Objetivo de la sesión">'+esc(s.obj)+'</textarea>'+
+'<p><b>Duración total: <span id="tot"></span> min</b></p></div>';
+s.ex.forEach(function(x,j){h+='<div class="card ex"><div class="row"><input data-s="x" data-j="'+j+'" data-k="t" value="'+esc(x.t)+'" placeholder="Ejercicio"><input type="number" min="0" data-s="x" data-j="'+j+'" data-k="min" value="'+esc(x.min)+'" style="max-width:80px;flex:none" aria-label="Minutos"><span class="mu">min</span></div>'+
+'<textarea data-s="x" data-j="'+j+'" data-k="d" placeholder="Descripción y normas">'+esc(x.d)+'</textarea><input data-s="x" data-j="'+j+'" data-k="m" value="'+esc(x.m)+'" placeholder="Material (conos, petos, balones…)" style="width:100%;margin-top:6px">'+
+'<div class="row"><button class="g" data-a="xu" data-j="'+j+'">↑</button><button class="g" data-a="xd" data-j="'+j+'">↓</button><button class="g" data-a="xa" data-j="'+j+'">📌 Adjuntar pizarra actual</button>'+(x.bd?'<button class="g" data-a="xv" data-j="'+j+'">Ver pizarra</button>':"")+'<button class="g" data-a="xx" data-j="'+j+'">✕</button></div></div>'});
+h+='<div class="card"><b>Añadir ejercicio</b><div class="row">'+Object.keys(TPL).map(function(k){return '<button class="g" data-a="ae" data-t="'+k+'">+ '+k+'</button>'}).join("")+'<button class="g" data-a="ae" data-t="">+ En blanco</button></div></div>'+
+'<div class="row"><button class="b" data-a="cps">Copiar sesión como texto</button><button class="g" data-a="sdel">Eliminar sesión</button></div><textarea id="out" class="hide" readonly></textarea>';
+$("se").innerHTML=h;tot()}
+function tot(){var s=S.ses[SI],e=$("tot");if(s&&e)e.textContent=s.ex.reduce(function(a,x){return a+(+x.min||0)},0)}
+function sesTxt(s){return "SESIÓN: "+s.name+(s.cat?" ("+s.cat+")":"")+" · "+s.date+"\nObjetivo: "+(s.obj||"-")+"\nDuración total: "+s.ex.reduce(function(a,x){return a+(+x.min||0)},0)+" min\n\n"+
+s.ex.map(function(x,i){return (i+1)+") "+x.t+" — "+(x.min||0)+" min\n   "+(x.d||"")+(x.m?"\n   Material: "+x.m:"")}).join("\n")}
+function copy(t){var o=$("out");if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Copiado")}).catch(fb)}else fb();
+function fb(){o.value=t;o.classList.remove("hide");o.rows=8;o.select();toast("Selecciona y copia el texto")}}
+
+/* ---------- PARTIDOS ---------- */
+function pn(id){var p=S.squad.filter(function(x){return x.id===id})[0];return p?(p.num?p.num+" ":"")+p.n:"?"}
+function rMat(){
+var h='<div class="card"><h2>Plantilla</h2><div class="row"><input id="sn" placeholder="Nombre"><input id="snum" type="number" placeholder="Dorsal" style="max-width:90px;flex:none"><select id="spos"><option>POR</option><option>DEF</option><option>MED</option><option>DEL</option></select><button class="b" data-a="pa_add">Añadir</button></div>'+
+'<div>'+(S.squad.map(function(p){return '<span class="chip">'+esc((p.num?p.num+" ":"")+p.n)+' <span class="mu">'+p.pos+'</span><button class="g" style="padding:0 7px" data-a="pa_del" data-t="'+p.id+'" aria-label="Quitar">✕</button></span>'}).join("")||'<span class="mu">Añade a tus jugadores para poder convocarlos.</span>')+'</div></div>';
+h+='<div class="card"><div class="row"><select id="msel" style="flex:1">'+S.mat.map(function(m,i){return '<option value="'+i+'"'+(i===MI?" selected":"")+'>'+esc((m.rival||"Partido sin rival")+" · "+(m.date||"sin fecha"))+'</option>'}).join("")+'</select><button class="b" data-a="mn">+ Nuevo partido</button></div></div>';
+var m=S.mat[MI];
+if(m){h+='<div class="card"><div class="row"><input data-s="m" data-k="rival" value="'+esc(m.rival)+'" placeholder="Rival"><select data-s="m" data-k="ty"><option value="11"'+(m.ty==="11"?" selected":"")+'>Fútbol 11</option><option value="7"'+(m.ty==="7"?" selected":"")+'>Fútbol 7</option></select><select data-s="m" data-k="fo">'+fopts(m.ty,m.fo)+'</select></div>'+
+'<div class="row"><input type="date" data-s="m" data-k="date" value="'+esc(m.date)+'"><input type="time" data-s="m" data-k="time" value="'+esc(m.time)+'"><input data-s="m" data-k="place" value="'+esc(m.place)+'" placeholder="Lugar o campo"></div></div>'+
+'<div class="card"><h2>Convocatoria ('+m.conv.length+')</h2>'+(S.squad.map(function(p){return '<label class="chip"><input type="checkbox" data-a="cv" data-t="'+p.id+'"'+(m.conv.indexOf(p.id)>=0?" checked":"")+'> '+esc((p.num?p.num+" ":"")+p.n)+'</label>'}).join("")||'<span class="mu">Primero añade jugadores a la plantilla.</span>')+'</div>'+
+'<div class="card"><h2>Alineación '+m.fo+'</h2>'+fpos(m.fo).map(function(q,i){return '<div class="sl"><b>'+q.l+'</b><select data-s="l" data-j="'+i+'"><option value="">—</option>'+m.conv.filter(function(id){return S.squad.some(function(p){return p.id===id})}).map(function(id){return '<option value="'+id+'"'+(m.lineup[i]===id?" selected":"")+'>'+esc(pn(id))+'</option>'}).join("")+'</select></div>'}).join("")+'</div>'+
+'<div class="row"><button class="b" data-a="cpm">Copiar convocatoria y alineación</button><button class="g" data-a="mdel">Eliminar partido</button></div><textarea id="out" class="hide" readonly></textarea>'}
+$("pa").innerHTML=h}
+function matTxt(m){return "PARTIDO FÚTBOL "+m.ty+" vs "+(m.rival||"?")+"\n"+(m.date||"")+" "+(m.time||"")+" · "+(m.place||"")+"\n\nConvocados: "+m.conv.map(pn).join(", ")+"\n\nAlineación "+m.fo+":\n"+fpos(m.fo).map(function(q,i){return q.l+": "+(m.lineup[i]?pn(m.lineup[i]):"-")}).join("\n")}
+
+/* ---------- ACCIONES ---------- */
+function sure(b){if(b.dataset.sure!=="1"){b.dataset.sure="1";b.textContent="¿Seguro? Pulsa otra vez";return false}return true}
+var A={
+tab:function(j,t){["pz","se","pa"].forEach(function(s){$(s).classList.toggle("hide",s!==t)});
+document.querySelectorAll("nav button").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)});if(t==="pz")fit()},
+tool:function(j,t){if(t==="undo"){if(B.hist.length){B.els=JSON.parse(B.hist.pop());draw()}return}
+if(t==="clear"){snap();B.els=[];draw();return}B.tool=t;document.querySelectorAll("#tools button").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)})},
+fa:function(){place("a")},fb:function(){place("b")},
+ts:function(){var n=$("tn").value.trim()||"Táctica "+(S.tac.length+1);S.tac.push({id:uid(),name:n,type:B.type,half:B.half,els:JSON.parse(JSON.stringify(B.els))});$("tn").value="";sv();tl();toast("Táctica guardada")},
+tload:function(j){loadB(S.tac[j]);toast("Táctica cargada")},tdel:function(j){S.tac.splice(j,1);sv();tl()},
+sn:function(){S.ses.push({id:uid(),name:"Nueva sesión",date:today(),cat:"",obj:"",ex:[]});SI=S.ses.length-1;sv();rSes()},
+ae:function(j,t){var x=TPL[t]||[10,""];S.ses[SI].ex.push({t:t||"Ejercicio",min:x[0],d:x[1],m:"",bd:null});sv();rSes()},
+xu:function(j){var e=S.ses[SI].ex;if(j>0){e.splice(j-1,0,e.splice(j,1)[0]);sv();rSes()}},
+xd:function(j){var e=S.ses[SI].ex;if(j<e.length-1){e.splice(j+1,0,e.splice(j,1)[0]);sv();rSes()}},
+xx:function(j,t,b){if(sure(b)){S.ses[SI].ex.splice(j,1);sv();rSes()}},
+xa:function(j){S.ses[SI].ex[j].bd={type:B.type,half:B.half,els:JSON.parse(JSON.stringify(B.els))};sv();rSes();toast("Pizarra adjuntada")},
+xv:function(j){loadB(S.ses[SI].ex[j].bd);A.tab(0,"pz")},
+cps:function(){copy(sesTxt(S.ses[SI]))},
+sdel:function(j,t,b){if(sure(b)){S.ses.splice(SI,1);SI=S.ses.length-1;sv();rSes()}},
+pa_add:function(){var n=$("sn").value.trim();if(!n)return;S.squad.push({id:uid(),n:n,num:$("snum").value,pos:$("spos").value});sv();rMat()},
+pa_del:function(j,t){S.squad=S.squad.filter(function(p){return p.id!==t});sv();rMat()},
+mn:function(){S.mat.push({id:uid(),rival:"",date:"",time:"",place:"",ty:"11",fo:"4-4-2",conv:[],lineup:{}});MI=S.mat.length-1;sv();rMat()},
+cv:function(j,t){var m=S.mat[MI],i=m.conv.indexOf(t);if(i>=0){m.conv.splice(i,1);for(var k in m.lineup)if(m.lineup[k]===t)delete m.lineup[k]}else m.conv.push(t);sv();rMat()},
+cpm:function(){copy(matTxt(S.mat[MI]))},
+mdel:function(j,t,b){if(sure(b)){S.mat.splice(MI,1);MI=S.mat.length-1;sv();rMat()}}};
+document.addEventListener("click",function(e){var b=e.target.closest("[data-a]");if(!b)return;var f=A[b.dataset.a];if(f)f(+b.dataset.j,b.dataset.t,b)});
+document.addEventListener("input",function(e){var el=e.target,sc=el.dataset.s;if(!sc)return;var o;
+if(sc==="s")o=S.ses[SI];else if(sc==="x")o=S.ses[SI].ex[+el.dataset.j];else if(sc==="m")o=S.mat[MI];
+if(sc==="l"){if(el.value)S.mat[MI].lineup[el.dataset.j]=el.value;else delete S.mat[MI].lineup[el.dataset.j]}
+else if(o)o[el.dataset.k]=el.value;sv();if(sc==="s"||sc==="x")tot()});
+document.addEventListener("change",function(e){var el=e.target;
+if(el.id==="ssel"){SI=+el.value;rSes()}else if(el.id==="msel"){MI=+el.value;rMat()}
+else if(el.dataset.s==="m"&&(el.dataset.k==="ty"||el.dataset.k==="fo")){var m=S.mat[MI];if(el.dataset.k==="ty")m.fo=FM[m.ty][0];m.lineup={};sv();rMat()}
+else if(el.dataset.s==="s"&&el.dataset.k==="name")rSes()});
+$("ty").onchange=function(){B.type=this.value;$("fo").innerHTML=fopts(B.type);fit()};
+$("hf").onchange=function(){B.half=this.value==="1";fit()};
+
+/* ---------- INICIO ---------- */
+ld();cv=$("cv");cx=cv.getContext("2d");
+$("tools").innerHTML=TOOLS.map(function(t){return '<button data-a="tool" data-t="'+t[0]+'"'+(t[0]==="move"?' class="on"':"")+'>'+t[1]+'</button>'}).join("");
+$("fo").innerHTML=fopts("11");
+if(S.ses.length)SI=0;if(S.mat.length)MI=0;
+bind();fit();tl();rSes();rMat();
+window.addEventListener("resize",fit);
+</script>
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
